@@ -1,0 +1,115 @@
+---
+title: "STAT 4911 Practice Project"
+author: "Brady Virtue, Charlene Li, Corina Phalen, Yujia Fng"
+date: "2026-01-16"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(nycflights13)
+library(ggplot2)
+```
+
+
+# EDA
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+glimpse(flights)
+glimpse(airlines)
+glimpse(airports)
+glimpse(planes)
+glimpse(weather)
+```
+
+## Data cleaning: Process canceled flights and calculate average delays for each month.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+delay_by_month <- flights %>%
+  filter(!is.na(dep_delay)) %>%
+  group_by(month) %>%
+  summarise(
+    avg_dep_delay = mean(dep_delay),
+    flight_count = n()
+  )
+```
+
+## Monthly Delay Trend Chart
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(delay_by_month, aes(x = factor(month), y = avg_dep_delay, fill = avg_dep_delay)) +
+  geom_col() +
+  scale_fill_gradient(low = "khaki1", high = "darkred") +
+  labs(title = "Average monthly flight delays at New York airports in 2013",
+       x = "Month",
+       y = "Average Delay (minute)",
+       fill = "Delay Duration") +
+  theme_minimal()
+```
+
+## Airport Comparison
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=4}
+# Hourly delay accumulation by airport
+hourly_delay <- flights %>%
+  filter(!is.na(dep_delay)) %>%
+  group_by(origin, hour) %>%
+  summarise(avg_delay = mean(dep_delay))
+
+ggplot(hourly_delay, aes(x = hour, y = avg_delay, color = origin)) +
+  geom_line(size = 1) +
+  geom_point() +
+  labs(title = "Average Hourly Delay Trends",
+       x = "Departure Time (24-hour clock)", y = "Average delay (Minutes)",
+       color = "Airport") +
+  theme_bw()
+```
+
+# Weather factors 
+
+## Wind
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+weather_flights <- flights %>%
+  inner_join(weather, by = c("year", "month", "day", "hour", "origin")) %>%
+  filter(!is.na(dep_delay))
+
+ggplot(weather_flights, aes(x = wind_speed, y = dep_delay)) +
+  geom_smooth(method = "gam", color = "red") +
+  coord_cartesian(ylim = c(0, 50), xlim = c(0, 40)) +
+  labs(title = "Impact of Wind Speed on Departure Delays",
+       x = "Wind Speed (mph)", y = "Predicted Average Delay (Minutes)") +
+  theme_light()
+```
+
+## Visibility
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+visib_analysis <- weather_flights %>%
+  group_by(visib) %>%
+  summarise(avg_delay = mean(dep_delay, na.rm = TRUE))
+
+ggplot(visib_analysis, aes(x = visib, y = avg_delay)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(size = 2) +
+  labs(title = "Impact of Visibility on Average Departure Delay",
+       x = "Visibility (miles)",
+       y = "Average Departure Delay (minutes)") +
+  theme_light()
+```
+
+## Humidity
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+humid_analysis <- weather_flights %>%
+  mutate(humid_bin = round(humid / 5) * 5) %>%
+  group_by(humid_bin) %>%
+  summarise(avg_delay = mean(dep_delay, na.rm = TRUE))
+
+ggplot(humid_analysis, aes(x = humid_bin, y = avg_delay)) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Average Delay by Humidity Levels",
+       subtitle = "Binned by 5% increments",
+       x = "Humidity (%)",
+       y = "Average Departure Delay (minutes)") +
+  theme_light()
+```
+
+
+
